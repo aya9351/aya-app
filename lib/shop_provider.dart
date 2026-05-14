@@ -1,98 +1,138 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'product_model.dart';
 
 class ShopProvider with ChangeNotifier {
-  final List<Product> _products = [
-    Product(
-      id: '1', 
-      name: 'Smart Electric Kettle', 
-      price: 150.0, 
-      image: 'assets/2.jpg', 
-      category: 'Kitchen', 
-      description: 'High-quality smart kettle with temperature control and rapid boil technology.'
-    ),
-    Product(
-      id: '2', 
-      name: 'Smart Control Hub', 
-      price: 310.0, 
-      image: 'assets/4.jpg', 
-      category: 'Smart Devices', 
-      description: 'A central hub to control all your smart home appliances with one touch.'
-    ),
-    Product(
-      id: '3', 
-      name: 'Minimalist Desk Clock', 
-      price: 280.0, 
-      image: 'assets/5.jpg', 
-      category: 'Smart Devices', 
-      description: 'Sleek smart clock that displays time, date, and room temperature.'
-    ),
-    Product(
-      id: '4', 
-      name: 'Coffee Brewing Set', 
-      price: 550.0, 
-      image: 'assets/6.jpg', 
-      category: 'Kitchen', 
-      description: 'Professional set for coffee lovers, combining style and functionality.'
-    ),
-    Product(
-      id: '5', 
-      name: 'Emerald Luxury Kettle', 
-      price: 395.0, 
-      image: 'assets/7.jpg', 
-      category: 'Kitchen', 
-      description: 'Elegant emerald green kettle with a premium wooden handle design.'
-    ),
-    Product(
-      id: '6', 
-      name: 'Pop-up Power Socket', 
-      price: 220.0, 
-      image: 'assets/8.jpg', 
-      category: 'Kitchen', 
-      description: 'Hidden pop-up outlet with multiple AC sockets and USB charging ports.'
-    ),
-    Product(
-      id: '7', 
-      name: 'Compact Air Fryer', 
-      price: 480.0, 
-      image: 'assets/9.jpg', 
-      category: 'Kitchen', 
-      description: 'Healthy cooking made easy with this compact and powerful air fryer.'
-    ),
-    Product(
-      id: '8', 
-      name: 'Espresso Station', 
-      price: 1250.0, 
-      image: 'assets/11.jpg', 
-      category: 'Kitchen', 
-      description: 'Complete professional espresso machine for the perfect morning coffee.'
-    ),
-    Product(
-      id: '9', 
-      name: 'Bedside Smart Lamp', 
-      price: 260.0, 
-      image: 'assets/13.jpg', 
-      category: 'Smart Devices', 
-      description: 'Multifunctional bedside lamp with wireless charging and alarm clock.'
-    ),
-  ];
-
+  List<Product> _products = [];
   final List<Product> _cart = [];
+  bool _isLoading = false;
+  String _errorMessage = "";
 
+  // Getters للوصول للبيانات
   List<Product> get products => _products;
   List<Product> get cart => _cart;
+  bool get isLoading => _isLoading;
+  String get errorMessage => _errorMessage;
   List<Product> get favorites => _products.where((p) => p.isFavorite).toList();
   
-  List<String> get categories => ['Kitchen', 'Smart Devices'];
-
-  int get cartCount => _cart.length; 
+  int get cartCount => _cart.length;
   int get favoriteCount => favorites.length;
-
   double get totalCartPrice => _cart.fold(0, (sum, item) => sum + (item.price * item.quantity));
+
+  // --- دالة جلب البيانات الأساسية (API + Offline) ---
+  Future<void> fetchProducts() async {
+    if (_products.isNotEmpty) return;
+
+    _isLoading = true;
+    _errorMessage = "";
+    notifyListeners();
+
+    // استعادة السلة من الذاكرة أولاً قبل جلب المنتجات الجديدة
+    await _loadCartFromPrefs();
+
+    try {
+      final response = await http.get(Uri.parse("https://fakestoreapi.com/products"));
+
+      if (response.statusCode == 200) {
+        List<dynamic> data = json.decode(response.body);
+        _products = data.map((item) => Product.fromJson(item)).toList();
+        
+        // حفظ بيانات الـ JSON للأوفلاين (تعمل على الويب والجوال)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('cached_products_json', response.body);
+        
+        // استعادة حالة المفضلة
+        await _loadFavoritesFromPrefs();
+        _errorMessage = "";
+      } else {
+        await _loadFromCache();
+      }
+    } catch (e) {
+      await _loadFromCache();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- تحميل الكاش (وضع الأوفلاين) ---
+  Future<void> _loadFromCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? cachedData = prefs.getString('cached_products_json');
+      
+      if (cachedData != null) {
+        List<dynamic> data = json.decode(cachedData);
+        _products = data.map((item) => Product.fromJson(item)).toList();
+        await _loadFavoritesFromPrefs();
+        _errorMessage = "Offline Mode: Active";
+      } else {
+        _errorMessage = "No internet and no cached data.";
+      }
+    } catch (e) {
+      _errorMessage = "Error loading offline data.";
+    }
+  }
+
+  // --- منطق المفضلة الدائم ---
+  Future<void> _saveFavoritesToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> favIds = favorites.map((p) => p.id).toList();
+    await prefs.setStringList('favorite_ids', favIds);
+  }
+
+  Future<void> _loadFavoritesFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? favIds = prefs.getStringList('favorite_ids');
+    
+    if (favIds != null) {
+      for (var product in _products) {
+        if (favIds.contains(product.id)) {
+          product.isFavorite = true;
+        }
+      }
+    }
+    notifyListeners();
+  }
 
   void toggleFavorite(Product p) {
     p.isFavorite = !p.isFavorite;
+    _saveFavoritesToPrefs();
     notifyListeners();
+  }
+
+  // --- منطق السلة الدائم (Persistent Cart) ---
+
+  Future<void> _saveCartToPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    // تحويل السلة إلى JSON String لحفظها
+    List<String> cartJsonList = _cart.map((item) => json.encode({
+      'id': item.id,
+      'title': item.name,
+      'price': item.price,
+      'image': item.image,
+      'category': item.category,
+      'description': item.description,
+      'quantity': item.quantity,
+    })).toList();
+    await prefs.setStringList('cached_cart_list', cartJsonList);
+  }
+Future<void> _loadCartFromPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? cartJsonList = prefs.getStringList('cached_cart_list');
+    
+    if (cartJsonList != null) {
+      _cart.clear();
+      for (var itemStr in cartJsonList) {
+        Map<String, dynamic> itemData = json.decode(itemStr);
+        Product p = Product.fromJson(itemData);
+        p.quantity = itemData['quantity'] ?? 1;
+        _cart.add(p);
+      }
+      notifyListeners();
+    }
   }
 
   void addToCart(Product p) {
@@ -100,16 +140,19 @@ class ShopProvider with ChangeNotifier {
       p.quantity = 1;
       _cart.add(p);
     } else {
-      p.quantity++;
+      // إذا كان موجوداً، نبحث عنه ونزيد الكمية
+      _cart.firstWhere((item) => item.id == p.id).quantity++;
     }
+    _saveCartToPrefs(); // حفظ السلة في الجهاز
     notifyListeners();
   }
 
   void removeFromCart(Product p) {
     _cart.removeWhere((item) => item.id == p.id);
-    p.quantity = 1;
+    _saveCartToPrefs(); // تحديث الحفظ بعد الحذف
     notifyListeners();
   }
+
   void updateQuantity(Product p, bool increment) {
     if (increment) {
       p.quantity++;
@@ -117,9 +160,10 @@ class ShopProvider with ChangeNotifier {
       if (p.quantity > 1) {
         p.quantity--;
       } else {
-        removeFromCart(p);
+        _cart.removeWhere((item) => item.id == p.id);
       }
     }
+    _saveCartToPrefs(); // تحديث الحفظ بعد تعديل الكمية
     notifyListeners();
   }
-}
+}  
