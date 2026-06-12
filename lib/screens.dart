@@ -3,21 +3,18 @@ import 'package:provider/provider.dart';
 import 'product_model.dart';
 import 'shop_provider.dart';
 
-// --- ويدجت كرت المنتج (تم إضافة زر الحذف وتنسيق الأزرار) ---
 class ProductCard extends StatelessWidget {
   final Product product;
   const ProductCard({required this.product, super.key});
 
   @override
   Widget build(BuildContext context) {
-    // نستخدم listen: false هنا لأننا نحتاج استدعاء دوال فقط عند الضغط
     final shop = Provider.of<ShopProvider>(context, listen: false);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Stack(
         children: [
-          // خلفية الكرت (الصورة)
           Positioned.fill(
             child: InkWell(
               onTap: () => Navigator.push(
@@ -32,7 +29,6 @@ class ProductCard extends StatelessWidget {
             ),
           ),
 
-          // المعلومات السفلية (الاسم والسعر وزر الإضافة للسلة)
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: Container(
@@ -74,8 +70,6 @@ class ProductCard extends StatelessWidget {
               ),
             ),
           ),
-
-          // زر المفضلة (أعلى اليسار)
           Positioned(
             top: 10, left: 10,
             child: GestureDetector(
@@ -96,7 +90,6 @@ class ProductCard extends StatelessWidget {
   }
 }
 
-// --- الشاشة الرئيسية (تعديل استدعاء البيانات) ---
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -108,7 +101,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // جلب البيانات مرة واحدة فقط عند بدء التطبيق
     Future.microtask(() =>
         Provider.of<ShopProvider>(context, listen: false).fetchProducts());
   }
@@ -123,19 +115,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          // عرض رسالة في حال كان التطبيق يعمل بدون إنترنت (Offline Mode)
-          /*if (shop.errorMessage.isNotEmpty)
-            Container(
-              width: double.infinity,
-              color: Colors.orange.shade100,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                shop.errorMessage,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.brown, fontSize: 12, fontWeight: FontWeight.bold),
-              ),
-            ),*/
-
           Expanded(
             child: shop.isLoading
                 ? const Center(child: CircularProgressIndicator(color: Colors.teal))
@@ -155,7 +134,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-// --- شاشة تفاصيل المنتج ---
 class ProductDetailsScreen extends StatelessWidget {
   final Product product;
   const ProductDetailsScreen({required this.product, super.key});
@@ -178,7 +156,6 @@ class ProductDetailsScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // عرض الصورة بشكل كبير ومريح
           Expanded(
             flex: 5,
             child: Container(
@@ -192,7 +169,6 @@ class ProductDetailsScreen extends StatelessWidget {
               ),
             ),
           ),
-          // محتوى التفاصيل مع تصميم منحني
           Expanded(
             flex: 4,
             child: Container(
@@ -236,7 +212,6 @@ class ProductDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // زر الإضافة للسلة
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.teal,
@@ -260,13 +235,11 @@ class ProductDetailsScreen extends StatelessWidget {
     );
   }
 }
-// --- شاشة الفئات ---
 class CategoriesScreen extends StatelessWidget {
   const CategoriesScreen({super.key});
   
   @override
   Widget build(BuildContext context) {
-    // قائمة الفئات المتاحة في API الـ Fake Store
     final List<Map<String, dynamic>> categoryData = [
       {'name': 'electronics', 'icon': Icons.devices_other_rounded},
       {'name': 'jewelery', 'icon': Icons.diamond_rounded},
@@ -323,7 +296,6 @@ class CategoriesScreen extends StatelessWidget {
     );
   }
 }
-// --- شاشة السلة (تم إضافة زر الحذف وتنسيق السعر الإجمالي) ---
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
 
@@ -356,7 +328,6 @@ class CartScreen extends StatelessWidget {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // أزرار التحكم بالكمية
                         IconButton(
                           icon: const Icon(Icons.remove_circle_outline, color: Colors.teal), 
                           onPressed: () => shop.updateQuantity(item, false)
@@ -366,7 +337,6 @@ class CartScreen extends StatelessWidget {
                           icon: const Icon(Icons.add_circle_outline, color: Colors.teal), 
                           onPressed: () => shop.updateQuantity(item, true)
                         ),
-                        // زر الحذف المباشر من السلة
                         IconButton(
                           icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                           onPressed: () => shop.removeFromCart(item),
@@ -378,7 +348,6 @@ class CartScreen extends StatelessWidget {
               },
             ),
           ),
-          // عرض الإجمالي وزر الدفع
           Container(
             padding: const EdgeInsets.all(25),
             decoration: BoxDecoration(
@@ -405,7 +374,6 @@ class CartScreen extends StatelessWidget {
  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                   onPressed: shop.cart.isEmpty ? null : () {
-                    // هنا يمكن إضافة منطق الدفع لاحقاً
                   },
                   child: const Text("Checkout Now", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
@@ -418,7 +386,6 @@ class CartScreen extends StatelessWidget {
   }
 }
 
-// --- شاشة المفضلة ---
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
 
@@ -454,7 +421,6 @@ class FavoritesScreen extends StatelessWidget {
   }
 }
 
-// --- شاشة عرض منتجات فئة محددة ---
 class CategoryProductsScreen extends StatelessWidget {
   final String categoryName;
   const CategoryProductsScreen({required this.categoryName, super.key});
@@ -481,7 +447,6 @@ class CategoryProductsScreen extends StatelessWidget {
   }
 }
 
-// --- نافذة النجاح عند الإضافة للسلة ---
 void showSuccessDialog(BuildContext context) {
   showDialog(
     context: context,

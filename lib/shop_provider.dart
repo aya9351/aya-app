@@ -10,7 +10,6 @@ class ShopProvider with ChangeNotifier {
   bool _isLoading = false;
   String _errorMessage = "";
 
-  // Getters للوصول للبيانات
   List<Product> get products => _products;
   List<Product> get cart => _cart;
   bool get isLoading => _isLoading;
@@ -21,7 +20,6 @@ class ShopProvider with ChangeNotifier {
   int get favoriteCount => favorites.length;
   double get totalCartPrice => _cart.fold(0, (sum, item) => sum + (item.price * item.quantity));
 
-  // --- دالة جلب البيانات الأساسية (API + Offline) ---
   Future<void> fetchProducts() async {
     if (_products.isNotEmpty) return;
 
@@ -29,7 +27,6 @@ class ShopProvider with ChangeNotifier {
     _errorMessage = "";
     notifyListeners();
 
-    // استعادة السلة من الذاكرة أولاً قبل جلب المنتجات الجديدة
     await _loadCartFromPrefs();
 
     try {
@@ -39,11 +36,9 @@ class ShopProvider with ChangeNotifier {
         List<dynamic> data = json.decode(response.body);
         _products = data.map((item) => Product.fromJson(item)).toList();
         
-        // حفظ بيانات الـ JSON للأوفلاين (تعمل على الويب والجوال)
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('cached_products_json', response.body);
         
-        // استعادة حالة المفضلة
         await _loadFavoritesFromPrefs();
         _errorMessage = "";
       } else {
@@ -57,7 +52,6 @@ class ShopProvider with ChangeNotifier {
     }
   }
 
-  // --- تحميل الكاش (وضع الأوفلاين) ---
   Future<void> _loadFromCache() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -76,7 +70,6 @@ class ShopProvider with ChangeNotifier {
     }
   }
 
-  // --- منطق المفضلة الدائم ---
   Future<void> _saveFavoritesToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> favIds = favorites.map((p) => p.id).toList();
@@ -103,11 +96,10 @@ class ShopProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // --- منطق السلة الدائم (Persistent Cart) ---
 
   Future<void> _saveCartToPrefs() async {
     final prefs = await SharedPreferences.getInstance();
-    // تحويل السلة إلى JSON String لحفظها
+  
     List<String> cartJsonList = _cart.map((item) => json.encode({
       'id': item.id,
       'title': item.name,
@@ -140,16 +132,15 @@ Future<void> _loadCartFromPrefs() async {
       p.quantity = 1;
       _cart.add(p);
     } else {
-      // إذا كان موجوداً، نبحث عنه ونزيد الكمية
       _cart.firstWhere((item) => item.id == p.id).quantity++;
     }
-    _saveCartToPrefs(); // حفظ السلة في الجهاز
+    _saveCartToPrefs();
     notifyListeners();
   }
 
   void removeFromCart(Product p) {
     _cart.removeWhere((item) => item.id == p.id);
-    _saveCartToPrefs(); // تحديث الحفظ بعد الحذف
+    _saveCartToPrefs();
     notifyListeners();
   }
 
@@ -163,7 +154,7 @@ Future<void> _loadCartFromPrefs() async {
         _cart.removeWhere((item) => item.id == p.id);
       }
     }
-    _saveCartToPrefs(); // تحديث الحفظ بعد تعديل الكمية
+    _saveCartToPrefs();
     notifyListeners();
   }
 }  

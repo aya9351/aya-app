@@ -19,19 +19,17 @@ class Product {
     this.quantity = 1,
   });
 
-  // تحويل JSON إلى كائن Product مع معالجة البيانات لضمان عدم وجود قيم فارغة (Null Safety)
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
-      id: json['id'].toString(), // تحويل الـ ID لنص دائماً لتجنب مشاكل النوع
-      name: json['title'] ?? 'No Name', 
-      price: (json['price'] as num).toDouble(), // تحويل السعر لـ double بدقة
-      image: json['image'] ?? '', 
+      id: json['id'].toString(),
+      name: json['title'] ?? 'No Name',
+      price: (json['price'] as num).toDouble(),
+      image: json['image'] ?? '',
       category: json['category'] ?? 'General',
       description: json['description'] ?? 'No description available.',
     );
   }
 
-  // دالة اختيارية لتحويل الكائن مجدداً لـ Map إذا احتجت لحفظه مستقبلاً
   Map<String, dynamic> toJson() {
     return {
       'id': id,
